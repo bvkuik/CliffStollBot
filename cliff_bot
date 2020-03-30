@@ -1,0 +1,69 @@
+#!/bin/python
+import telegram
+from telegram.ext import Updater
+from telegram.ext import CommandHandler
+from telegram.ext import MessageHandler, Filters
+import logging
+import configparser
+import os
+import time
+from PIL import Image
+import numpy as np
+import math
+
+configfile = "YOURCONFIGFILE.ini"
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+chat_state = 'normal'
+config = configparser.ConfigParser()
+config.read(configfile)
+
+updater = Updater(token=config["CONFIG"]["key"], use_context=True)
+dispatcher = updater.dispatcher
+
+def start(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text=config["LANG"]["start_reply"])  
+
+def echo(update, context):
+    global chat_state
+    config.read(configfile)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=config["LANG"]["response_text"])
+
+def location(update, context):
+    loc = update.message.location
+    loc_lat = loc.latitude
+    loc_lon = loc.longitude
+    d = calculation(loc_lat, loc_lon)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=config["LANG"]["response_distance"]+" "+str(d)+" "+config["LANG"]["response_unit"])
+
+def degToRad(deg):
+    return deg * math.pi / 180
+
+def calculation(lat, lon):
+    config.read(configfile)
+    dLat = degToRad(float(config["CLIFF"]["latitude"]) - lat)
+    dLon = degToRad(float(config["CLIFF"]["longitude"]) - lon)
+    
+    lat1 = degToRad(lat)
+    lat2 = degToRad(float(config["CLIFF"]["latitude"]))
+
+    a = math.sin(dLat/2) * math.sin(dLat/2) + math.sin(dLon/2) * math.sin(dLon/2) * math.cos(lat1) * math.cos(lat2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return float(config["CLIFF"]["earth_radius"]) * c
+
+start_handler = CommandHandler('start', start)
+dispatcher.add_handler(start_handler)
+
+echo_handler = MessageHandler(Filters.text, echo)
+dispatcher.add_handler(echo_handler)
+
+loc_handler = MessageHandler(Filters.location, location)
+dispatcher.add_handler(loc_handler)
+
+attempts = 0
+while attempts < 5:
+    try:
+        updater.start_polling()
+    except telegram.error.NetworkError:
+        time.sleep(10)
+        attempts = attempts + 1

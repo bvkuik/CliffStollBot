@@ -1,0 +1,12 @@
+[Unit]
+Description=Wilde gij ook weten hoe ver je van Cliff Stoll verwijderd bent? Kijk dan niet verder!
+Requires=systemd-modules-load.service
+After=systemd-modules-load.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=zuurmijrk
+ExecStart=/usr/bin/cliff_bot
+
+[Install]
+WantedBy=multi-user.target
